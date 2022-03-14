@@ -14,7 +14,7 @@ pub struct Params {
     pub event_id: String,
     pub alice_pk: Point<EvenY>,
     pub bob_pk: Point<EvenY>,
-    pub open_proportion: f32,
+    pub closed_proportion: f32,
     pub bucket_size: usize,
     pub n_outcomes: usize,
     pub elgamal_base: Gt,
@@ -22,7 +22,7 @@ pub struct Params {
 
 impl Params {
     pub fn M(&self) -> usize {
-        ((self.bucket_size * self.n_outcomes) as f32 / self.open_proportion).ceil() as usize
+        ((self.bucket_size * self.n_outcomes) as f32 / self.closed_proportion).ceil() as usize
     }
 
     pub fn anticipated_gt_event_index(&self, event_id: &str, i: usize) -> Gt {

@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
         alice_pk: alice_keypair.verification_key(),
         bob_pk: bob_keypair.verification_key(),
         bucket_size: 6,
-        open_proportion: 0.85,
+        closed_proportion: 0.85,
         elgamal_base,
     };
 
