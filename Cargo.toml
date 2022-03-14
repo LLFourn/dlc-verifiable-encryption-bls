@@ -1,0 +1,17 @@
+[package]
+name = "dlc_venc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bls12_381 = { version =  "0.6", features = ["experimental"] }
+anyhow = "1"
+schnorr_fun = "0.7"
+sha2 = "0.9"
+rand = { version = "0.8" }
+ff = "0.11"
+group = "0.11"
+sigma_fun = "0.4"
+rand_chacha = "0.3"
