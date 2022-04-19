@@ -42,7 +42,7 @@ impl Params {
 
 pub fn map_access_GT_to_Zq(ri_mapped: &Gt, ri: &ChainScalar) -> [u8; 32] {
     let mut hashed_xor_ri = Sha256::default()
-        .chain(format!("{}", ri_mapped).as_bytes())
+        .chain(ri_mapped.to_compressed())
         .finalize();
     for (xor_byte, ri_byte) in hashed_xor_ri.iter_mut().zip(ri.to_bytes()) {
         *xor_byte ^= ri_byte
@@ -52,7 +52,7 @@ pub fn map_access_GT_to_Zq(ri_mapped: &Gt, ri: &ChainScalar) -> [u8; 32] {
 
 pub fn access_Zq(ri_mapped: &Gt, pad: [u8; 32]) -> ChainScalar<Secret, Zero> {
     let mut ri_bytes = Sha256::default()
-        .chain(format!("{}", ri_mapped).as_bytes())
+        .chain(ri_mapped.to_compressed())
         .finalize();
     for (xor_byte, pad_byte) in ri_bytes.iter_mut().zip(pad) {
         *xor_byte ^= pad_byte

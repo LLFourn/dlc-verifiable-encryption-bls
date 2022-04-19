@@ -67,12 +67,14 @@ impl Bob1 {
         });
 
         for (commit, opening) in opened.iter().zip(message.openings.iter()) {
-            let Ri_prime = G2Affine::generator() * opening;
+            let ri_prime = opening;
+            let Ri_prime = G2Affine::generator() * ri_prime;
             if Ri_prime != G2Projective::from(commit.C.0) {
                 return Err(anyhow!("decommitment was wrong"));
             }
-            let ri_mapped = params.elgamal_base * opening - commit.C.1;
+            let ri_mapped = commit.C.1 - params.elgamal_base * ri_prime;
             let ri = access_Zq(&ri_mapped, commit.pad);
+
 
             if g!(ri * G) != commit.R {
                 return Err(anyhow!(
@@ -81,19 +83,19 @@ impl Bob1 {
             }
         }
 
-        let mut buckets = vec![vec![]; params.n_outcomes];
+        let mut buckets = Vec::with_capacity(params.bucket_size * params.n_outcomes);
 
-        for (from, to) in message2.bucket_mapping.into_iter().enumerate() {
-            let bucket_index = to / params.bucket_size;
-            buckets[bucket_index].push((commits[from], &message.encryptions[from]));
+
+        for (from, encryption) in message2.bucket_mapping.into_iter().zip(message.encryptions) {
+            buckets.push((commits[from], encryption));
         }
 
         let proof_system = ProofSystem::default();
         let mut encryption_buckets = vec![];
-        for (i, bucket) in buckets.into_iter().enumerate() {
-            let sig_point = params.anticipated_gt_event_index(&params.event_id, i);
+        for (bucket_index, bucket) in buckets.chunks(params.bucket_size).enumerate() {
+            let sig_point = params.anticipated_gt_event_index(&params.event_id, bucket_index);
             let mut encryption_bucket = vec![];
-            let anticipated_sig = &anticipated_sigs[i];
+            let anticipated_sig = &anticipated_sigs[bucket_index];
             for (commit, (proof, encryption, padded_sig)) in bucket {
                 if !dleq::verify_eqaulity(
                     &proof_system,
@@ -104,7 +106,7 @@ impl Bob1 {
                     commit.C,
                 ) {
                     return Err(anyhow!(
-                        "proof for equality between ciphertext and commitment was invalid"
+                        "proof of equality between ciphertext and commitment was invalid"
                     ));
                 }
 
@@ -137,7 +139,7 @@ impl Bob2 {
         let bucket = self.encryption_buckets.remove(index);
         let anticipated_sig = &bucket.1;
         let sig = bucket.0.iter().find_map(|(encryption, padded_sig, pad)| {
-            let ri_mapped = e(&attestation, &encryption.0) - &encryption.1;
+            let ri_mapped = &encryption.1 - e(&attestation, &encryption.0);
             let ri = access_Zq(&ri_mapped, *pad);
             let sig = s!(padded_sig - ri);
             if &g!(sig * G) == anticipated_sig {

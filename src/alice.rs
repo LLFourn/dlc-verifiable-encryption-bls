@@ -82,47 +82,44 @@ impl Alice1 {
             mut secrets,
             mut commits,
         } = self;
-        let mut opened = vec![];
         let mut i = 0;
 
-        commits.retain(|commit| {
+        commits.retain(|_| {
             let open_it = message.openings.contains(&i);
-            if open_it {
-                opened.push(commit.clone());
-            }
             i += 1;
             !open_it
         });
+
         let mut i = 0;
         let mut openings = vec![];
         secrets.retain(|secret| {
             let open_it = message.openings.contains(&i);
+            i += 1;
             if open_it {
                 openings.push(secret.1);
             }
-            i += 1;
             !open_it
         });
 
-        let mut buckets = vec![vec![]; params.n_outcomes];
-        for (from, to) in message.bucket_mapping.into_iter().enumerate() {
-            let bucket_index = to / params.bucket_size;
-            buckets[bucket_index].push((commits[from], &secrets[from]));
+        let mut buckets = Vec::with_capacity(params.bucket_size * params.n_outcomes);
+        for from in message.bucket_mapping.into_iter() {
+            buckets.push((commits[from], &secrets[from]));
         }
 
         let proof_system = crate::dleq::ProofSystem::default();
 
         let encryptions = buckets
-            .into_iter()
+            .chunks(params.bucket_size)
             .enumerate()
-            .flat_map(|(i, bucket)| {
-                let sig_point = params.anticipated_gt_event_index(&params.event_id, i);
-                let secret_sig = &secret_sigs[i];
+            .flat_map(|(bucket_index, bucket)| {
+                let sig_point = params.anticipated_gt_event_index(&params.event_id, bucket_index);
+                let secret_sig = &secret_sigs[bucket_index];
                 let mut encryption_bucket = vec![];
                 for (commit, (ri, ri_prime, ri_mapped)) in bucket {
                     // compute the ElGamal encryption to the signature of ri_mapped
                     let ri_encryption = sig_point * ri_prime + ri_mapped;
                     // create proof ElGamal encryption value is same as commitment
+
                     let proof = crate::dleq::prove_eqaulity(
                         &proof_system,
                         *ri_prime,
@@ -131,6 +128,8 @@ impl Alice1 {
                         params.elgamal_base,
                         commit.C,
                     );
+
+                    // assert!(crate::dleq::verify_eqaulity(&proof_system, &proof, ri_encryption, sig_point, params.elgamal_base, commit.C));
                     // one-time pad of the signature in Z_q
                     let padded_secret = s!(ri + secret_sig);
                     encryption_bucket.push((proof, ri_encryption, padded_secret));

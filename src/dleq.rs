@@ -73,12 +73,12 @@ where
     }
 
     fn hash_statement<H: Update>(&self, hash: &mut H, statement: &Self::Statement) {
-        hash.update(format!("{:?}", statement.0).as_bytes());
-        hash.update(format!("{:?}", statement.1).as_bytes());
+        hash.update(statement.0.to_compressed());
+        hash.update(statement.1.to_compressed());
     }
 
     fn hash_announcement<H: Update>(&self, hash: &mut H, announcement: &Self::Announcement) {
-        hash.update(format!("{:?}", announcement).as_bytes());
+        hash.update(announcement.to_compressed());
     }
 
     fn hash_witness<H: Update>(&self, hash: &mut H, witness: &Self::Witness) {
@@ -101,7 +101,7 @@ pub struct DLG2<L> {
 
 impl<L> sigma_fun::Writable for DLG2<L> {
     fn write_to<W: core::fmt::Write>(&self, w: &mut W) -> core::fmt::Result {
-        write!(w, "DL(bls12-381-GT)")
+        write!(w, "DL(bls12-381-G2)")
     }
 }
 
@@ -217,4 +217,26 @@ pub fn verify_eqaulity(
     let statement = ((G2Affine::generator(), commit.0), (sig_sub, enc_sub));
 
     proof_system.verify(&statement, proof)
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use group::Group;
+
+    #[test]
+    fn dleq_roundtrip() {
+        let ri_prime = Scalar::random(&mut rand::thread_rng());
+        let ri_point =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let commit_base =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let sig_point =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let commit = ((G2Affine::generator() * ri_prime).into(), commit_base * ri_prime + ri_point);
+        let ri_encryption = sig_point * ri_prime + ri_point;
+        let proof_system = ProofSystem::default();
+
+        let proof = prove_eqaulity(&proof_system, ri_prime, ri_encryption, sig_point, commit_base, commit);
+        assert!(verify_eqaulity(&proof_system, &proof, ri_encryption, sig_point, commit_base, commit))
+
+    }
 }

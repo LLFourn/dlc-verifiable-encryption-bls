@@ -21,6 +21,17 @@ fn main() -> anyhow::Result<()> {
     let elgamal_base =
         <G1Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(b"dlc".as_ref(), b"dlc");
     let elgamal_base = e(&elgamal_base.into(), &G2Affine::generator());
+    // let params = Params {
+    //     oracle_key,
+    //     n_outcomes: 2,
+    //     event_id: "test".to_string(),
+    //     alice_pk: alice_keypair.verification_key(),
+    //     bob_pk: bob_keypair.verification_key(),
+    //     bucket_size: 2,
+    //     closed_proportion: 0.5,
+    //     elgamal_base,
+    // };
+
     let params = Params {
         oracle_key,
         n_outcomes: 1024,
@@ -45,9 +56,9 @@ fn main() -> anyhow::Result<()> {
     println!("bob round 4");
     let bob = bob.receive_message(m3, anticipated_sigs, &params)?;
 
-    let attestation = oracle.attest(&params.event_id, 42);
+    let attestation = oracle.attest(&params.event_id, 0);
     println!("attestation");
-    let scalar = bob.receive_oracle_attestation(42, attestation)?;
+    let scalar = bob.receive_oracle_attestation(0, attestation)?;
 
     println!("got the secret sig {}", scalar);
 
