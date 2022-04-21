@@ -4,7 +4,6 @@ use bls12_381::{
 };
 use bls12_381::{multi_miller_loop, G2Prepared, Gt};
 use schnorr_fun::fun::marker::*;
-use schnorr_fun::fun::Point;
 use schnorr_fun::fun::Scalar as ChainScalar;
 use sha2::{digest::Digest, Sha256};
 
@@ -12,8 +11,6 @@ use sha2::{digest::Digest, Sha256};
 pub struct Params {
     pub oracle_key: G2Prepared,
     pub event_id: String,
-    pub alice_pk: Point<EvenY>,
-    pub bob_pk: Point<EvenY>,
     pub closed_proportion: f32,
     pub bucket_size: usize,
     pub n_outcomes: usize,
@@ -26,9 +23,9 @@ impl Params {
     }
 
     pub fn anticipated_gt_event_index(&self, event_id: &str, i: usize) -> Gt {
-        let M = message_for_event_index(event_id, i);
+        let message = message_for_event_index(event_id, i);
 
-        multi_miller_loop(&[(&M, &self.oracle_key)]).final_exponentiation()
+        multi_miller_loop(&[(&message, &self.oracle_key)]).final_exponentiation()
     }
 
     pub fn NB(&self) -> usize {

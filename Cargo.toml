@@ -1,5 +1,5 @@
 [package]
-name = "dlc_venc"
+name = "dlc_venc_pairing"
 version = "0.1.0"
 edition = "2021"
 

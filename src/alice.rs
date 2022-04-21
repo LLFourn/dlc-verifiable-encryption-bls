@@ -10,8 +10,6 @@ pub struct Alice1 {
     commits: Vec<Commit>,
 }
 
-pub struct Alice2 {}
-
 impl Alice1 {
     pub fn new(params: &Params) -> (Alice1, Message1) {
         let (commits, secrets): (Vec<Commit>, Vec<(ChainScalar, Scalar, Gt)>) = (0..params.M())
@@ -59,7 +57,7 @@ impl Alice1 {
         message: Message2,
         secret_sigs: Vec<ChainScalar>,
         params: &Params,
-    ) -> anyhow::Result<(Alice2, Message3)> {
+    ) -> anyhow::Result<Message3> {
         assert_eq!(secret_sigs.len(), params.n_outcomes);
         let NB = params.NB();
         if let Some(bad_index) = message.bucket_mapping.iter().find(|map| **map >= NB) {
@@ -138,13 +136,11 @@ impl Alice1 {
             })
             .collect();
 
-        Ok((
-            Alice2 {},
-            Message3 {
+        Ok(Message3 {
                 encryptions,
                 openings,
             },
-        ))
+        )
     }
 }
 
