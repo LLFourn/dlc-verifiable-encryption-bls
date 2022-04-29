@@ -1,11 +1,10 @@
-use std::{any::Any, time::Instant};
-
 use bls12_381::pairing as e;
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     G1Projective, G2Affine,
 };
 use clap::Parser;
+use dlc_venc_pairing::messages::EstimateSize;
 use dlc_venc_pairing::{
     alice::*,
     bob::*,
@@ -15,6 +14,7 @@ use dlc_venc_pairing::{
 use rand::Rng;
 use secp256kfun::{g, Scalar as ChainScalar, G};
 use sha2::Sha256;
+use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -117,9 +117,6 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn encode_len(_message: &impl Any) -> usize {
-    // bincode::serde::encode_to_vec(&message, bincode::config::standard())
-    //     .unwrap()
-    //     .len()
-    0
+fn encode_len(message: &impl EstimateSize) -> usize {
+    message.estimate_size()
 }
