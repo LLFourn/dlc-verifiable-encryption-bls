@@ -1,5 +1,5 @@
 use crate::poly::PointPoly;
-use bls12_381::{G2Affine, Gt, Scalar};
+use bls12_381::{G1Affine, Gt, Scalar};
 use secp256kfun::{marker::*, Point, Scalar as ChainScalar};
 // use serde::Serialize;
 use std::collections::BTreeSet;
@@ -11,7 +11,7 @@ pub struct Message1 {
 
 #[derive(Debug, Clone, Default, Copy)]
 pub struct Commit {
-    pub C: (G2Affine, Gt),
+    pub C: (G1Affine, Gt),
     pub R: Point,
     pub pad: [u8; 32],
 }

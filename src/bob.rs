@@ -1,6 +1,6 @@
 use crate::{common::Params, messages::*};
 use anyhow::anyhow;
-use bls12_381::{pairing as e, G1Affine, G2Affine, G2Projective, Gt};
+use bls12_381::{pairing as e, G1Affine, G1Projective, G2Affine, Gt};
 use rand::{prelude::SliceRandom, RngCore};
 use secp256kfun::{g, marker::*, s, Point, Scalar as ChainScalar, G};
 
@@ -64,8 +64,8 @@ impl Bob1 {
 
         for (commit, opening) in opened.iter().zip(message.openings.iter()) {
             let ri_prime = opening;
-            let Ri_prime = G2Affine::generator() * ri_prime;
-            if Ri_prime != G2Projective::from(commit.C.0) {
+            let Ri_prime = G1Affine::generator() * ri_prime;
+            if Ri_prime != G1Projective::from(commit.C.0) {
                 return Err(anyhow!("decommitment was wrong"));
             }
             let ri_mapped = commit.C.1 - params.elgamal_base * ri_prime;
@@ -140,7 +140,7 @@ pub struct Bob2 {
         Vec<(
             // For every oracle:
             // 1. A list of encryptions (all encrypting the same signature share)
-            Vec<((G2Affine, Gt), ChainScalar<Secret, Zero>, [u8; 32])>,
+            Vec<((G1Affine, Gt), ChainScalar<Secret, Zero>, [u8; 32])>,
             // 2. The image of the signature share that will be encrypted
             Point<Normal, Public, Zero>,
         )>,
@@ -153,7 +153,7 @@ impl Bob2 {
     pub fn receive_oracle_attestation(
         mut self,
         outcome_index: u32,
-        attestations: Vec<G1Affine>,
+        attestations: Vec<G2Affine>,
         params: &Params,
     ) -> anyhow::Result<ChainScalar<Public, Zero>> {
         let (outcome_bucket, secret_image) = self.outcome_buckets.remove(outcome_index as usize);
@@ -167,7 +167,7 @@ impl Bob2 {
             }
 
             for (encryption, padded_secret_share, pad) in oracle_bucket {
-                let ri_mapped = encryption.1 - e(&attestation, &encryption.0);
+                let ri_mapped = encryption.1 - e(&encryption.0, &attestation);
                 let ri = crate::common::map_Gt_to_Zq(&ri_mapped, pad);
                 let secret_share = s!(padded_secret_share - ri).mark::<Public>();
                 let got_secret_share_image = g!(secret_share * G);

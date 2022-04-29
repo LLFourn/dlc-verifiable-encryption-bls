@@ -1,4 +1,4 @@
-use bls12_381::{G1Affine, G2Affine, G2Prepared, Scalar};
+use bls12_381::{G1Affine, G2Affine, Scalar};
 use ff::Field;
 use rand::RngCore;
 
@@ -7,7 +7,7 @@ use crate::common::message_for_event_index;
 #[allow(dead_code)]
 pub struct Oracle {
     sk: Scalar,
-    pk: G2Prepared,
+    pk: G1Affine,
 }
 
 impl Oracle {
@@ -17,17 +17,17 @@ impl Oracle {
     pub fn new(scalar: Scalar) -> Self {
         Self {
             sk: scalar,
-            pk: G2Prepared::from(G2Affine::from(G2Affine::generator() * scalar)),
+            pk: G1Affine::from(G1Affine::generator() * scalar),
         }
     }
 
-    pub fn public_key(&self) -> G2Prepared {
+    pub fn public_key(&self) -> G1Affine {
         self.pk.clone()
     }
 
-    pub fn attest(&self, event_id: &str, outcome_index: u32) -> G1Affine {
+    pub fn attest(&self, event_id: &str, outcome_index: u32) -> G2Affine {
         let message = message_for_event_index(event_id, outcome_index);
-        let sig = G1Affine::from(&message * &self.sk);
+        let sig = G2Affine::from(&message * &self.sk);
         sig
     }
 }

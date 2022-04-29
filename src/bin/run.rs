@@ -3,7 +3,7 @@ use std::{any::Any, time::Instant};
 use bls12_381::pairing as e;
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
-    G1Projective, G2Affine, G2Prepared,
+    G1Projective, G2Affine,
 };
 use clap::Parser;
 use dlc_venc_pairing::{
@@ -55,7 +55,6 @@ fn main() -> anyhow::Result<()> {
         elgamal_base,
         threshold: args.threshold,
         event_id: "test".to_string(),
-        generator_prepared: G2Prepared::from(G2Affine::generator()),
     };
 
     let secrets = (0..params.n_outcomes)

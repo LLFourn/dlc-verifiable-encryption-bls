@@ -1,6 +1,4 @@
-use std::marker::PhantomData;
-
-use bls12_381::{G2Affine, Gt, Scalar};
+use bls12_381::{G1Affine, Gt, Scalar};
 use ff::Field;
 use group::GroupEncoding;
 use rand::{CryptoRng, RngCore};
@@ -11,6 +9,7 @@ use sigma_fun::{
     typenum::{self, type_operators::IsLessOrEqual, U31},
     CompactProof, Eq, FiatShamir, HashTranscript, Sigma,
 };
+use std::marker::PhantomData;
 
 /// DL Proof for bls12-381 target group
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -111,9 +110,9 @@ where
     <L as IsLessOrEqual<U31>>::Output: typenum::marker_traits::NonZero,
 {
     type Witness = Scalar;
-    type Statement = (G2Affine, G2Affine);
+    type Statement = (G1Affine, G1Affine);
     type AnnounceSecret = Scalar;
-    type Announcement = G2Affine;
+    type Announcement = G1Affine;
     type Response = Scalar;
     type ChallengeLength = L;
 
@@ -193,11 +192,11 @@ pub fn prove_eqaulity(
     ri_encryption: Gt,
     sig_point: Gt,
     commit_base: Gt,
-    commit: (G2Affine, Gt),
+    commit: (G1Affine, Gt),
 ) -> Proof {
     let enc_sub = &ri_encryption - &commit.1;
     let sig_sub = &sig_point - &commit_base;
-    let statement = ((G2Affine::generator(), commit.0), (sig_sub, enc_sub));
+    let statement = ((G1Affine::generator(), commit.0), (sig_sub, enc_sub));
     let witness = ri_prime;
 
     let proof = proof_system.prove(&witness, &statement, Some(&mut rand::thread_rng()));
@@ -210,11 +209,11 @@ pub fn verify_eqaulity(
     ri_encryption: Gt,
     sig_point: Gt,
     commit_base: Gt,
-    commit: (G2Affine, Gt),
+    commit: (G1Affine, Gt),
 ) -> bool {
     let enc_sub = &ri_encryption - &commit.1;
     let sig_sub = &sig_point - &commit_base;
-    let statement = ((G2Affine::generator(), commit.0), (sig_sub, enc_sub));
+    let statement = ((G1Affine::generator(), commit.0), (sig_sub, enc_sub));
 
     proof_system.verify(&statement, proof)
 }
@@ -231,7 +230,7 @@ mod test {
         let commit_base = Gt::generator() * Scalar::random(&mut rand::thread_rng());
         let sig_point = Gt::generator() * Scalar::random(&mut rand::thread_rng());
         let commit = (
-            (G2Affine::generator() * ri_prime).into(),
+            (G1Affine::generator() * ri_prime).into(),
             commit_base * ri_prime + ri_point,
         );
         let ri_encryption = sig_point * ri_prime + ri_point;

@@ -1,6 +1,6 @@
 use crate::{common::map_Zq_to_Gt, common::Params, messages::*};
 use anyhow::anyhow;
-use bls12_381::{G2Affine, Gt, Scalar};
+use bls12_381::{G1Affine, Gt, Scalar};
 use ff::Field;
 use secp256kfun::{g, s, Scalar as ChainScalar, G};
 
@@ -23,11 +23,9 @@ impl Alice1 {
 
                 let Ri = g!(ri * G).normalize();
                 let ri_prime = Scalar::random(&mut rand::thread_rng());
-                // Create Elgamal comitments in the form of (G_2, G_T)
+                // Create Elgamal comitments in the form of (G_1, G_T)
                 let C_i = (
-                    // this is in G_2
-                    (G2Affine::generator() * &ri_prime).into(),
-                    // this is in G_T
+                    (G1Affine::generator() * &ri_prime).into(),
                     (&params.elgamal_base * ri_prime) + &ri_mapped,
                 );
 
