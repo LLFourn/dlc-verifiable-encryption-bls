@@ -1,7 +1,8 @@
-use std::collections::BTreeSet;
-
+use crate::poly::PointPoly;
 use bls12_381::{G2Affine, Gt, Scalar};
-use schnorr_fun::fun::{marker::*, Point, Scalar as ChainScalar};
+use secp256kfun::{marker::*, Point, Scalar as ChainScalar};
+// use serde::Serialize;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
 pub struct Message1 {
@@ -24,5 +25,6 @@ pub struct Message2 {
 #[derive(Debug, Clone)]
 pub struct Message3 {
     pub encryptions: Vec<(crate::dleq::Proof, Gt, ChainScalar<Secret, Zero>)>,
+    pub polys: Vec<PointPoly>,
     pub openings: Vec<Scalar>,
 }

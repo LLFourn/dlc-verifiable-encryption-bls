@@ -219,7 +219,6 @@ pub fn verify_eqaulity(
     proof_system.verify(&statement, proof)
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -228,15 +227,31 @@ mod test {
     #[test]
     fn dleq_roundtrip() {
         let ri_prime = Scalar::random(&mut rand::thread_rng());
-        let ri_point =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
-        let commit_base =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
-        let sig_point =  Gt::generator() * Scalar::random(&mut rand::thread_rng());
-        let commit = ((G2Affine::generator() * ri_prime).into(), commit_base * ri_prime + ri_point);
+        let ri_point = Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let commit_base = Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let sig_point = Gt::generator() * Scalar::random(&mut rand::thread_rng());
+        let commit = (
+            (G2Affine::generator() * ri_prime).into(),
+            commit_base * ri_prime + ri_point,
+        );
         let ri_encryption = sig_point * ri_prime + ri_point;
         let proof_system = ProofSystem::default();
 
-        let proof = prove_eqaulity(&proof_system, ri_prime, ri_encryption, sig_point, commit_base, commit);
-        assert!(verify_eqaulity(&proof_system, &proof, ri_encryption, sig_point, commit_base, commit))
-
+        let proof = prove_eqaulity(
+            &proof_system,
+            ri_prime,
+            ri_encryption,
+            sig_point,
+            commit_base,
+            commit,
+        );
+        assert!(verify_eqaulity(
+            &proof_system,
+            &proof,
+            ri_encryption,
+            sig_point,
+            commit_base,
+            commit
+        ))
     }
 }
