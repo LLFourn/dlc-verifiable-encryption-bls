@@ -1,15 +1,18 @@
-# Sketch of DLCs using cut-and-choose verifiable encryption (pairing edition)
+# Sketch of DLCs using cut-and-choose verifiable encryption to BLS signatures
+
+DLCs via verifiable encryption with BLS as the attestation scheme.
+
+In the protocol "Alice" verifiably encrypts a list of secret scalar's to their corresponding anticipated oracle attestation points such that when the oracle attests to an outcome "Bob" can decrypt it.
+
 
 important points:
 
-1. The first group element in the ElGamal commitments/encryption is in `G_2` but it should probably be in `G_1` instead.
-3. The parameters I took are from https://eprint.iacr.org/2014/667.pdf Appendix A table 2 (number of outcomes 1024, bucket_size: 6, proportion of balls not to break: 0.85).
-4. I implemented the cut-and-choose interactively (not via Fiat-Shamir) but this could easily be changed.
-5. It's slow because ElGamal in `G_T` is slow.
+1. I implemented the cut-and-choose interactively (not via Fiat-Shamir) but this could easily be changed.
+2. It's slow because ElGamal in `G_T` is slow.
 
 
 ## Run it
 
 ```
-cargo run --release
+cargo run --release -- -s 30 --n-outcomes 100 --threshold 2 --n-oracles 3
 ```
