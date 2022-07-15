@@ -94,17 +94,17 @@ where
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct DLG2<L> {
+pub struct DLG1<L> {
     challenge_len: PhantomData<L>,
 }
 
-impl<L> sigma_fun::Writable for DLG2<L> {
+impl<L> sigma_fun::Writable for DLG1<L> {
     fn write_to<W: core::fmt::Write>(&self, w: &mut W) -> core::fmt::Result {
         write!(w, "DL(bls12-381-G2)")
     }
 }
 
-impl<L: ArrayLength<u8>> Sigma for DLG2<L>
+impl<L: ArrayLength<u8>> Sigma for DLG1<L>
 where
     L: IsLessOrEqual<U31>,
     <L as IsLessOrEqual<U31>>::Output: typenum::marker_traits::NonZero,
@@ -180,7 +180,7 @@ fn normalize_challenge<L: ArrayLength<u8>>(challenge: &GenericArray<u8, L>) -> S
     Scalar::from_bytes(&challenge_bytes).unwrap()
 }
 
-type DLEQ = Eq<DLG2<U31>, DLGT<U31>>;
+type DLEQ = Eq<DLG1<U31>, DLGT<U31>>;
 
 pub type Proof = CompactProof<DLEQ>;
 

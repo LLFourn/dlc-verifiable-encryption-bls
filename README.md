@@ -2,13 +2,9 @@
 
 DLCs via verifiable encryption with BLS as the attestation scheme.
 
-In the protocol "Alice" verifiably encrypts a list of secret scalar's to their corresponding anticipated oracle attestation points such that when the oracle attests to an outcome "Bob" can decrypt it.
+In the protocol "Alice" verifiably encrypts two secret scalars (representing 0 and 1) for each bit that an oracle will attest to.
+In addition she pads secret shares of secret values by these secret scalars such that if an oracle attests to a certain outcome the receiver of the encryption will be able to decrypt the secret share corresponding to that outcome (and that oracle). Should enough oracles attest to the same thing they will recover the secret values.
 
-
-important points:
-
-1. I implemented the cut-and-choose interactively (not via Fiat-Shamir) but this could easily be changed.
-2. It's slow because ElGamal in `G_T` is slow.
 
 
 ## Run it

@@ -2,7 +2,7 @@ use crate::{common::map_Zq_to_Gt, common::Params, messages::*};
 use anyhow::anyhow;
 use bls12_381::{G1Affine, Gt, Scalar};
 use ff::Field;
-use secp256kfun::{g, s, Scalar as ChainScalar, G};
+use secp256kfun::{g, marker::*, s, Scalar as ChainScalar, G};
 
 pub struct Alice1 {
     commit_secrets: Vec<(ChainScalar, Scalar, Gt)>,
@@ -14,7 +14,7 @@ impl Alice1 {
         let (commits, commit_secrets): (Vec<Commit>, Vec<(ChainScalar, Scalar, Gt)>) = (0..params
             .M())
             .map(|_| {
-                // hackily elements of Z_q to G_t
+                // hackily map elements of Z_q to G_t
                 let (hashed_xor_ri, ri, ri_mapped) = {
                     let ri = ChainScalar::random(&mut rand::thread_rng());
                     let (ri_mapped, pad) = map_Zq_to_Gt(&ri);
@@ -103,8 +103,8 @@ impl Alice1 {
 
         let proof_system = crate::dleq::ProofSystem::default();
         let n_oracles = params.oracle_keys.len();
-        let mut anticipated_attestations = (0..n_oracles)
-            .map(|oracle_index| params.iter_anticipations(oracle_index))
+        let anticipated_attestations = (0..n_oracles)
+            .map(|oracle_index| params.iter_anticipations(oracle_index).collect::<Vec<_>>())
             .collect::<Vec<_>>();
 
         let scalar_polys = (0..params.n_outcomes)
@@ -119,36 +119,88 @@ impl Alice1 {
             })
             .collect::<Vec<_>>();
 
+        let bit_map: Vec<Vec<[ChainScalar; 2]>> = (0..n_oracles)
+            .map(|_| {
+                (0..params.n_outcome_bits())
+                    .map(|_| {
+                        [
+                            ChainScalar::random(&mut rand::thread_rng()),
+                            ChainScalar::random(&mut rand::thread_rng()),
+                        ]
+                    })
+                    .collect()
+            })
+            .collect();
+
         let mut encryptions = vec![];
 
-        for (outcome_index, buckets) in buckets
-            .chunks(params.bucket_size as usize * n_oracles)
+        for (oracle_index, bits_window) in buckets
+            .chunks((params.n_outcome_bits() * 2 * params.bucket_size as u32) as usize)
             .enumerate()
         {
-            let scalar_poly = &scalar_polys[outcome_index];
-            for (oracle_index, bucket) in buckets.chunks(params.bucket_size as usize).enumerate() {
-                let anticipated_attestation =
-                    anticipated_attestations[oracle_index].next().unwrap();
-                let secret_share = scalar_poly.eval((oracle_index + 1) as u32);
-                for (commit, (ri, ri_prime, ri_mapped)) in bucket {
-                    // compute the ElGamal encryption of ri_mapped
-                    let ri_encryption = anticipated_attestation * ri_prime + ri_mapped;
-                    // create proof ElGamal encryption value is same as commitment
-                    let proof = crate::dleq::prove_eqaulity(
-                        &proof_system,
-                        ri_prime.clone(),
-                        ri_encryption,
-                        anticipated_attestation,
-                        params.elgamal_base,
-                        commit.C,
-                    );
+            for (outcome_bit_index, bit_window) in bits_window
+                .chunks((2 * params.bucket_size) as usize)
+                .enumerate()
+            {
+                for (bit_value_index, bit_value_window) in
+                    bit_window.chunks(params.bucket_size as usize).enumerate()
+                {
+                    let t = &bit_map[oracle_index][outcome_bit_index][bit_value_index];
+                    let anticipated_attestation =
+                        anticipated_attestations[oracle_index][outcome_bit_index][bit_value_index];
 
-                    // one-time pad of the secret_share in Z_q
-                    let padded_secret = s!(ri + secret_share);
-                    encryptions.push((proof, ri_encryption, padded_secret));
+                    for (commit, (ri, ri_prime, ri_mapped)) in bit_value_window {
+                        // compute the ElGamal encryption of ri_mapped
+                        let ri_encryption = anticipated_attestation * ri_prime + ri_mapped;
+                        // create proof ElGamal encryption value is same as commitment
+                        let proof = crate::dleq::prove_eqaulity(
+                            &proof_system,
+                            ri_prime.clone(),
+                            ri_encryption,
+                            anticipated_attestation,
+                            params.elgamal_base,
+                            commit.C,
+                        );
+
+                        // one-time pad of the secret_share in Z_q
+                        let padded_secret = s!(ri + t).mark::<Public>();
+                        encryptions.push((proof, ri_encryption, padded_secret));
+                    }
                 }
             }
         }
+
+        let secret_share_pads_by_oracle = (0..n_oracles)
+            .map(|oracle_index| {
+                let secret_share_pads = compute_pads(&bit_map[oracle_index][..]);
+
+                secret_share_pads
+                    .into_iter()
+                    .enumerate()
+                    .map(|(outcome_index, pad)| {
+                        let scalar_poly = &scalar_polys[outcome_index];
+                        let secret_share = scalar_poly.eval((oracle_index + 1) as u32);
+
+                        s!(pad + secret_share).mark::<Public>()
+                    })
+                    .collect()
+            })
+            .collect();
+
+        let bit_map_images = bit_map
+            .iter()
+            .map(|oracle_bits| {
+                oracle_bits
+                    .iter()
+                    .map(|oracle_bit| {
+                        [
+                            g!({ &oracle_bit[0] } * G).normalize(),
+                            g!({ &oracle_bit[1] } * G).normalize(),
+                        ]
+                    })
+                    .collect()
+            })
+            .collect();
 
         let polys = scalar_polys
             .into_iter()
@@ -162,6 +214,29 @@ impl Alice1 {
             encryptions,
             openings,
             polys,
+            bit_map_images,
+            secret_share_pads_by_oracle,
         })
+    }
+}
+
+fn compute_pads(pads: &[[ChainScalar; 2]]) -> Vec<ChainScalar<Secret, Zero>> {
+    _compute_pads(pads.len() - 1, ChainScalar::zero(), pads)
+}
+
+fn _compute_pads(
+    cur_bit: usize,
+    acc: ChainScalar<Secret, Zero>,
+    pads: &[[ChainScalar; 2]],
+) -> Vec<ChainScalar<Secret, Zero>> {
+    let zero = s!(acc + { &pads[cur_bit][0] });
+    let one = s!(acc + { &pads[cur_bit][1] });
+
+    if cur_bit == 0 {
+        vec![zero, one]
+    } else {
+        let mut children = _compute_pads(cur_bit - 1, zero, pads);
+        children.extend(_compute_pads(cur_bit - 1, one, pads));
+        children
     }
 }

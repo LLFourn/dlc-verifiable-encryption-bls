@@ -25,9 +25,18 @@ impl Oracle {
         self.pk.clone()
     }
 
-    pub fn attest(&self, event_id: &str, outcome_index: u32) -> G2Affine {
-        let message = message_for_event_index(event_id, outcome_index);
-        let sig = G2Affine::from(&message * &self.sk);
-        sig
+    pub fn attest(
+        &self,
+        event_id: &str,
+        n_outcome_bits: usize,
+        outcome_index: u32,
+    ) -> Vec<G2Affine> {
+        (0..n_outcome_bits)
+            .map(|bit_index| {
+                let bit_value = ((outcome_index >> bit_index) & 0x01) == 1;
+                let message = message_for_event_index(event_id, bit_index as u32, bit_value);
+                G2Affine::from(&message * &self.sk)
+            })
+            .collect()
     }
 }

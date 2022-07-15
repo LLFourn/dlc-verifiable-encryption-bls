@@ -107,7 +107,13 @@ fn main() -> anyhow::Result<()> {
 
     let attestations = oracles
         .iter()
-        .map(|oracle| oracle.attest(&params.event_id, outcome_index))
+        .map(|oracle| {
+            oracle.attest(
+                &params.event_id,
+                params.n_outcome_bits() as usize,
+                outcome_index,
+            )
+        })
         .collect();
     println!("got attestation");
     let scalar = bob.receive_oracle_attestation(outcome_index, attestations, &params)?;
