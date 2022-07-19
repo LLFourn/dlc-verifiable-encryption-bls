@@ -1,4 +1,4 @@
-use bls12_381::pairing as e;
+use bls12_381::{pairing as e, G2Prepared};
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     G1Projective, G2Affine,
@@ -55,6 +55,7 @@ fn main() -> anyhow::Result<()> {
         elgamal_base,
         threshold: args.threshold,
         event_id: "test".to_string(),
+        g2_prepared: G2Prepared::from(G2Affine::generator()),
     };
 
     let secrets = (0..params.n_outcomes)

@@ -1,9 +1,8 @@
-use bls12_381::Gt;
+use bls12_381::{Gt, G2Prepared, G1Projective, multi_miller_loop};
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
-    pairing, G1Affine, G2Affine, G2Projective, Scalar,
+    pairing, G1Affine, G2Affine, G2Projective,
 };
-use ff::Field;
 use group::Group;
 use secp256kfun::marker::*;
 use secp256kfun::Scalar as ChainScalar;
@@ -18,6 +17,7 @@ pub struct Params {
     pub n_outcomes: u32,
     pub threshold: u16,
     pub elgamal_base: Gt,
+    pub g2_prepared: G2Prepared
 }
 
 impl Params {
@@ -73,19 +73,21 @@ impl Params {
         let expected = self.anticipate_at_index(oracle_index, outcome_bit_index, outcome_bit_value);
         gt == expected
     }
+
+    pub fn map_Zq_to_Gt(&self, ri: &ChainScalar) -> (Gt, [u8; 32]) {
+        let gt_elem = {
+            let g1 = G1Affine::from(G1Projective::random(&mut rand::thread_rng()));
+            multi_miller_loop(&[(&g1, &self.g2_prepared)]).final_exponentiation()
+        };
+        let mut hashed_xor_ri = Sha256::default().chain(gt_elem.to_compressed()).finalize();
+        for (xor_byte, ri_byte) in hashed_xor_ri.iter_mut().zip(ri.to_bytes()) {
+            *xor_byte ^= ri_byte
+        }
+        (gt_elem, hashed_xor_ri.try_into().unwrap())
+    }
 }
 
-pub fn map_Zq_to_Gt(ri: &ChainScalar) -> (Gt, [u8; 32]) {
-    let gt_elem = {
-        let scalar = Scalar::random(&mut rand::thread_rng());
-        &Gt::generator() * &scalar
-    };
-    let mut hashed_xor_ri = Sha256::default().chain(gt_elem.to_compressed()).finalize();
-    for (xor_byte, ri_byte) in hashed_xor_ri.iter_mut().zip(ri.to_bytes()) {
-        *xor_byte ^= ri_byte
-    }
-    (gt_elem, hashed_xor_ri.try_into().unwrap())
-}
+
 
 pub fn map_Gt_to_Zq(ri_mapped: &Gt, pad: [u8; 32]) -> ChainScalar<Secret, Zero> {
     let mut ri_bytes = Sha256::default()

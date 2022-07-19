@@ -1,4 +1,4 @@
-use crate::{common::map_Zq_to_Gt, common::Params, messages::*};
+use crate::{common::Params, messages::*};
 use anyhow::anyhow;
 use bls12_381::{G1Affine, Gt, Scalar};
 use ff::Field;
@@ -17,7 +17,7 @@ impl Alice1 {
                 // hackily map elements of Z_q to G_t
                 let (hashed_xor_ri, ri, ri_mapped) = {
                     let ri = ChainScalar::random(&mut rand::thread_rng());
-                    let (ri_mapped, pad) = map_Zq_to_Gt(&ri);
+                    let (ri_mapped, pad) = params.map_Zq_to_Gt(&ri);
                     (pad, ri, ri_mapped)
                 };
 
