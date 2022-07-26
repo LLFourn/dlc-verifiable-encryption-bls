@@ -1,8 +1,8 @@
-use bls12_381::{Gt, G2Prepared, G1Projective, multi_miller_loop};
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     pairing, G1Affine, G2Affine, G2Projective,
 };
+use bls12_381::{multi_miller_loop, G1Projective, G2Prepared, Gt};
 use group::Group;
 use secp256kfun::marker::*;
 use secp256kfun::Scalar as ChainScalar;
@@ -17,7 +17,7 @@ pub struct Params {
     pub n_outcomes: u32,
     pub threshold: u16,
     pub elgamal_base: Gt,
-    pub g2_prepared: G2Prepared
+    pub g2_prepared: G2Prepared,
 }
 
 impl Params {
@@ -86,8 +86,6 @@ impl Params {
         (gt_elem, hashed_xor_ri.try_into().unwrap())
     }
 }
-
-
 
 pub fn map_Gt_to_Zq(ri_mapped: &Gt, pad: [u8; 32]) -> ChainScalar<Secret, Zero> {
     let mut ri_bytes = Sha256::default()

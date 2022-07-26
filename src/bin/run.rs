@@ -1,8 +1,8 @@
-use bls12_381::{pairing as e, G2Prepared};
 use bls12_381::{
     hash_to_curve::{ExpandMsgXmd, HashToCurve},
     G1Projective, G2Affine,
 };
+use bls12_381::{pairing as e, G2Prepared};
 use clap::Parser;
 use dlc_venc_pairing::messages::EstimateSize;
 use dlc_venc_pairing::{

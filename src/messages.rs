@@ -68,5 +68,14 @@ impl EstimateSize for Message3 {
             .unwrap()
             .len()
             + self.openings.len() * 32
+            + bincode::serde::encode_to_vec(
+                &self.secret_share_pads_by_oracle,
+                bincode::config::standard(),
+            )
+            .unwrap()
+            .len()
+            + bincode::serde::encode_to_vec(&self.bit_map_images, bincode::config::standard())
+                .unwrap()
+                .len()
     }
 }
