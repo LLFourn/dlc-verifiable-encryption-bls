@@ -177,6 +177,7 @@ impl Alice1 {
                 secret_share_pads
                     .into_iter()
                     .enumerate()
+                    .take(params.n_outcomes as usize)
                     .map(|(outcome_index, pad)| {
                         let scalar_poly = &scalar_polys[outcome_index];
                         let secret_share = scalar_poly.eval((oracle_index + 1) as u32);

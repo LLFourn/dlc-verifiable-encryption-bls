@@ -143,7 +143,7 @@ impl Bob1 {
             message.secret_share_pads_by_oracle.iter().enumerate()
         {
             let pad_images = compute_pad_images(&message.bit_map_images[oracle_index]);
-            assert_eq!(pad_images.len(), params.n_outcomes as usize);
+            assert!(pad_images.len() >= params.n_outcomes as usize);
             assert_eq!(secret_share_pads.len(), params.n_outcomes as usize);
             for (outcome_index, (outcome_pad, expected_outcome_pad)) in
                 secret_share_pads.iter().zip(pad_images).enumerate()

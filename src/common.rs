@@ -26,7 +26,7 @@ impl Params {
     }
 
     pub fn n_outcome_bits(&self) -> u32 {
-        self.n_outcomes.log2()
+        (self.n_outcomes as f32).log2().ceil() as u32
     }
 
     pub fn n_anticipations_per_oracle(&self) -> u32 {
