@@ -109,9 +109,20 @@ pub fn message_for_event_index(
     .into()
 }
 
+fn cost_function(n_total: usize, n_open: usize) -> u64 {
+    let n_closed = n_total - n_open;
+    // rough measurements in ms of how long processing each stage of each commit takes.
+    // TODO: do an experiment to find the right numbers in practice!
+    let weight_open: f64 = 2.0;
+    let weight_closed: f64 = 7.35;
+    let weight_any: f64 = 3.29;
+
+    (weight_any * n_total as f64 + n_closed as f64 * weight_closed + n_open as f64 * weight_open).ceil() as u64
+}
+
 pub fn compute_optimal_params(security_param: u8, n_outcomes: u32, n_oracles: u32) -> (f64, u8) {
     if n_outcomes * n_oracles == 1 {
-        // this is cheating and not quite right
+        // this is cheating and not quite right but better than panicing on this edge case
         return (0.5, security_param);
     }
     let n_outcomes = n_outcomes as f64;
@@ -122,9 +133,10 @@ pub fn compute_optimal_params(security_param: u8, n_outcomes: u32, n_oracles: u3
     let n_oracles = n_oracles as f64;
     let N = n_encryptions * n_oracles;
     // we can afford to remove 1 bit of security since for any corruption the adversary makes there
-    // is a 1/2 chance that that outcome is actually selected.
+    // is a 1/2 chance that that outcome is actually selected using that corruption
     let s = security_param as f64 - 1.0;
 
+    // go through each possible proportion closed to see which gives the best score
     let (B, p, _) = (500..999)
         .filter_map(|p| {
             let p = (p as f64) / 1000.0;
@@ -135,8 +147,11 @@ pub fn compute_optimal_params(security_param: u8, n_outcomes: u32, n_oracles: u3
             let B = ((s as f64 + (N as f64).log2() - p.log2())
                 / ((N - N * p).log2() - p.log2() / (1.0 - p)))
                 .ceil();
-            let score = ((B * N) / p).ceil() as u64;
-            Some((B as u8, p, score))
+            let total_closed = B * N;
+            let total = total_closed/p;
+            let total_opened = total - total_closed;
+
+            Some((B as u8, p, cost_function(total as usize, total_opened as usize)))
         })
         .min_by_key(|(_, _, score)| *score)
         .unwrap();
