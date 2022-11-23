@@ -93,12 +93,16 @@ impl Bob1 {
         let mut bit_map_encryptions = vec![];
 
         for (oracle_index, bits_window) in buckets
-            .chunks((params.n_outcome_bits() * 2 * params.bucket_size as u32) as usize)
+            .chunks(
+                (params.n_outcome_bits()
+                    * params.n_anticipations_per_bit()
+                    * params.bucket_size as u32) as usize,
+            )
             .enumerate()
         {
-            let mut bits: Vec<[_; 2]> = vec![];
+            let mut bits: Vec<Vec<_>> = vec![];
             for (bit_index, bit_window) in bits_window
-                .chunks((2 * params.bucket_size) as usize)
+                .chunks((params.n_anticipations_per_bit() * params.bucket_size as u32) as usize)
                 .enumerate()
             {
                 let mut bit_values = vec![];
@@ -142,7 +146,8 @@ impl Bob1 {
         for (oracle_index, secret_share_pads) in
             message.secret_share_pads_by_oracle.iter().enumerate()
         {
-            let pad_images = compute_pad_images(&message.bit_map_images[oracle_index]);
+            let pad_images =
+                compute_pad_images(&message.bit_map_images[oracle_index], params.monotone);
             assert!(pad_images.len() >= params.n_outcomes as usize);
             assert_eq!(secret_share_pads.len(), params.n_outcomes as usize);
             for (outcome_index, (outcome_pad, expected_outcome_pad)) in
@@ -174,13 +179,13 @@ pub struct Bob2 {
     bit_map_encryptions: Vec<
         // For every outcome bit
         Vec<
-            // two bit values
-            [(
+            // 1 or 2 bit values depending on whether we're monotone or not
+            Vec<(
                 // a bucket of encryptions
                 Vec<((G1Affine, Gt), ChainScalar<Public, Zero>, [u8; 32])>,
                 // The image of the bit map that is encrypted
                 Point,
-            ); 2],
+            )>,
         >,
     >,
     // The image of the secret that should be revealed for each outcome
@@ -208,6 +213,7 @@ impl Bob2 {
                 .iter()
                 .zip(bit_attestations)
                 .enumerate()
+                .filter(|(_, (bit_value, _))| !params.monotone || **bit_value == false)
                 .map(|(bit_index, (bit_value, bit_attestation))| {
                     if !params.verify_bls_sig(
                         oracle_index,
@@ -290,23 +296,33 @@ impl Bob2 {
     }
 }
 
-fn compute_pad_images(pads: &[[Point; 2]]) -> Vec<Point<Jacobian, Public, Zero>> {
-    _compute_pad_images(pads.len() - 1, Point::zero().mark::<Jacobian>(), pads)
+fn compute_pad_images(pads: &[Vec<Point>], monotone: bool) -> Vec<Point<Jacobian, Public, Zero>> {
+    _compute_pad_images(
+        pads.len() - 1,
+        Point::zero().mark::<Jacobian>(),
+        pads,
+        monotone,
+    )
 }
 
 fn _compute_pad_images(
     cur_bit: usize,
     acc: Point<Jacobian, Public, Zero>,
-    pads: &[[Point; 2]],
+    pads: &[Vec<Point>],
+    monotone: bool,
 ) -> Vec<Point<Jacobian, Public, Zero>> {
     let zero = g!(acc + { pads[cur_bit][0] });
-    let one = g!(acc + { pads[cur_bit][1] });
+    let one = if monotone {
+        acc
+    } else {
+        g!(acc + { pads[cur_bit][1] })
+    };
 
     if cur_bit == 0 {
         vec![zero, one]
     } else {
-        let mut children = _compute_pad_images(cur_bit - 1, zero, pads);
-        children.extend(_compute_pad_images(cur_bit - 1, one, pads));
+        let mut children = _compute_pad_images(cur_bit - 1, zero, pads, monotone);
+        children.extend(_compute_pad_images(cur_bit - 1, one, pads, monotone));
         children
     }
 }

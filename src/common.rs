@@ -18,6 +18,7 @@ pub struct Params {
     pub threshold: u16,
     pub elgamal_base: Gt,
     pub g2_prepared: G2Prepared,
+    pub monotone: bool,
 }
 
 impl Params {
@@ -30,7 +31,15 @@ impl Params {
     }
 
     pub fn n_anticipations_per_oracle(&self) -> u32 {
-        self.n_outcome_bits() * 2
+        self.n_outcome_bits() * self.n_anticipations_per_bit()
+    }
+
+    pub fn n_anticipations_per_bit(&self) -> u32 {
+        if self.monotone {
+            1
+        } else {
+            2
+        }
     }
 
     pub fn NB(&self) -> usize {
@@ -117,24 +126,28 @@ fn cost_function(n_total: usize, n_open: usize) -> u64 {
     let weight_closed: f64 = 7.35;
     let weight_any: f64 = 3.29;
 
-    (weight_any * n_total as f64 + n_closed as f64 * weight_closed + n_open as f64 * weight_open).ceil() as u64
+    (weight_any * n_total as f64 + n_closed as f64 * weight_closed + n_open as f64 * weight_open)
+        .ceil() as u64
 }
 
-pub fn compute_optimal_params(security_param: u8, n_outcomes: u32, n_oracles: u32) -> (f64, u8) {
+pub fn compute_optimal_params(
+    security_param: u8,
+    n_outcomes: u32,
+    n_oracles: u32,
+    monotone: bool,
+) -> (f64, u8) {
     if n_outcomes * n_oracles == 1 {
         // this is cheating and not quite right but better than panicing on this edge case
         return (0.5, security_param);
     }
     let n_outcomes = n_outcomes as f64;
-    let mut n_encryptions = n_outcomes.log2().ceil() * 2.0;
+    let mut n_encryptions = n_outcomes.log2().ceil() * if monotone { 1.0 } else { 2.0 };
     if n_encryptions == 0.0 {
         n_encryptions = 1.0;
     }
     let n_oracles = n_oracles as f64;
     let N = n_encryptions * n_oracles;
-    // we can afford to remove 1 bit of security since for any corruption the adversary makes there
-    // is a 1/2 chance that that outcome is actually selected using that corruption
-    let s = security_param as f64 - 1.0;
+    let s = security_param as f64;
 
     // go through each possible proportion closed to see which gives the best score
     let (B, p, _) = (500..999)
@@ -148,10 +161,14 @@ pub fn compute_optimal_params(security_param: u8, n_outcomes: u32, n_oracles: u3
                 / ((N - N * p).log2() - p.log2() / (1.0 - p)))
                 .ceil();
             let total_closed = B * N;
-            let total = total_closed/p;
+            let total = total_closed / p;
             let total_opened = total - total_closed;
 
-            Some((B as u8, p, cost_function(total as usize, total_opened as usize)))
+            Some((
+                B as u8,
+                p,
+                cost_function(total as usize, total_opened as usize),
+            ))
         })
         .min_by_key(|(_, _, score)| *score)
         .unwrap();

@@ -31,6 +31,13 @@ struct CliArgs {
     /// The threshold of oracles that is required to attest
     #[clap(long)]
     threshold: u16,
+    /// use the payout monotoniciity optimization.
+    ///
+    /// This assumes that the access strucuture can allow the Bob to access all secrets assigned to
+    /// indexes greater than or equal to the attestation (i.e modelling Bob valuing lower encrypted
+    /// secrets than higher ones).
+    #[clap(long)]
+    monotone: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -44,8 +51,12 @@ fn main() -> anyhow::Result<()> {
         .map(|_| Oracle::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
 
-    let (closed_proportion, bucket_size) =
-        compute_optimal_params(args.s, args.n_outcomes as u32, args.n_oracles as u32);
+    let (closed_proportion, bucket_size) = compute_optimal_params(
+        args.s,
+        args.n_outcomes as u32,
+        args.n_oracles as u32,
+        args.monotone,
+    );
 
     let params = Params {
         oracle_keys: oracles.iter().map(|oracle| oracle.public_key()).collect(),
@@ -56,6 +67,7 @@ fn main() -> anyhow::Result<()> {
         threshold: args.threshold,
         event_id: "test".to_string(),
         g2_prepared: G2Prepared::from(G2Affine::generator()),
+        monotone: args.monotone,
     };
 
     let secrets = (0..params.n_outcomes)
@@ -65,41 +77,44 @@ fn main() -> anyhow::Result<()> {
 
     println!("Params s: {} n_oracles: {} n_outcomes: {} threshold: {} n_encryptions: {} bucket_size: {} proportion_closed: {}",
              args.s, args.n_oracles, args.n_outcomes, args.threshold, params.M(), params.bucket_size, params.closed_proportion);
-    let start_round1 = Instant::now();
+    let start_gen_msg_1 = Instant::now();
     let (alice, m1) = Alice1::new(&params);
     let m1_encode_len = encode_len(&m1);
     println!(
-        "End round 1 elapsed: {:?} transmitted: {}",
-        start_round1.elapsed(),
+        "End gen msg 1 elapsed: {:?} transmitted: {} (alice)",
+        start_gen_msg_1.elapsed(),
         m1_encode_len
     );
-    let start_round2 = Instant::now();
+    let start_gen_msg_2 = Instant::now();
     let (bob, m2) = Bob1::new(m1, &params)?;
     let m2_encode_len = encode_len(&m2);
     println!(
-        "End round 2 elapsed: {:?} transmitted: {}",
-        start_round2.elapsed(),
+        "End gen msg 2 elapsed: {:?} transmitted: {} (bob)",
+        start_gen_msg_2.elapsed(),
         m2_encode_len
     );
-    let start_round3 = Instant::now();
+    let start_gen_msg_3 = Instant::now();
     let m3 = alice.receive_message(m2, secrets, &params)?;
     let m3_encode_len = encode_len(&m3);
     println!(
-        "End round 3 elapsed: {:?} transmitted: {}",
-        start_round3.elapsed(),
+        "End gen msg 3 elapsed: {:?} transmitted: {} (alice)",
+        start_gen_msg_3.elapsed(),
         m3_encode_len
     );
-    let start_round4 = Instant::now();
+    let start_processing_msg_3 = Instant::now();
     let bob = bob.receive_message(m3, secret_images, &params)?;
-    println!("End round 4 elapsed: {:?}", start_round4.elapsed());
+    println!(
+        "End processing msg 3 elapsed: {:?} (bob)",
+        start_processing_msg_3.elapsed()
+    );
 
     let total_transmit_interactive = m1_encode_len + m2_encode_len + m3_encode_len;
     let total_transmit_non_interactive = m1_encode_len + m3_encode_len;
 
     println!(
         "Total elapsed: {:?} sans-preprocessing: {:?} transmitted: {} non-interactive: {}",
-        start_round1.elapsed(),
-        start_round2.elapsed(),
+        start_gen_msg_1.elapsed(),
+        start_gen_msg_2.elapsed(),
         total_transmit_interactive,
         total_transmit_non_interactive
     );

@@ -28,7 +28,7 @@ pub struct Message3 {
     pub encryptions: Vec<(crate::dleq::Proof, Gt, ChainScalar<Public, Zero>)>,
     pub polys: Vec<PointPoly>,
     pub openings: Vec<Scalar>,
-    pub bit_map_images: Vec<Vec<[Point; 2]>>,
+    pub bit_map_images: Vec<Vec<Vec<Point>>>,
     // there is one of these per outcome ( per oracle )
     pub secret_share_pads_by_oracle: Vec<Vec<ChainScalar<Public, Zero>>>,
 }

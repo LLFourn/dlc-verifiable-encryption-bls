@@ -119,14 +119,13 @@ impl Alice1 {
             })
             .collect::<Vec<_>>();
 
-        let bit_map: Vec<Vec<[ChainScalar; 2]>> = (0..n_oracles)
+        let bit_map: Vec<Vec<Vec<ChainScalar>>> = (0..n_oracles)
             .map(|_| {
                 (0..params.n_outcome_bits())
                     .map(|_| {
-                        [
-                            ChainScalar::random(&mut rand::thread_rng()),
-                            ChainScalar::random(&mut rand::thread_rng()),
-                        ]
+                        (0..params.n_anticipations_per_bit())
+                            .map(|_| ChainScalar::random(&mut rand::thread_rng()))
+                            .collect()
                     })
                     .collect()
             })
@@ -135,11 +134,15 @@ impl Alice1 {
         let mut encryptions = vec![];
 
         for (oracle_index, bits_window) in buckets
-            .chunks((params.n_outcome_bits() * 2 * params.bucket_size as u32) as usize)
+            .chunks(
+                (params.n_outcome_bits()
+                    * params.n_anticipations_per_bit()
+                    * params.bucket_size as u32) as usize,
+            )
             .enumerate()
         {
             for (outcome_bit_index, bit_window) in bits_window
-                .chunks((2 * params.bucket_size) as usize)
+                .chunks((params.n_anticipations_per_bit() * params.bucket_size as u32) as usize)
                 .enumerate()
             {
                 for (bit_value_index, bit_value_window) in
@@ -172,8 +175,8 @@ impl Alice1 {
 
         let secret_share_pads_by_oracle = (0..n_oracles)
             .map(|oracle_index| {
-                let secret_share_pads = compute_pads(&bit_map[oracle_index][..]);
-
+                let secret_share_pads = compute_pads(&bit_map[oracle_index][..], params.monotone);
+                assert!(secret_share_pads.len() >= params.n_outcomes as usize);
                 secret_share_pads
                     .into_iter()
                     .enumerate()
@@ -193,11 +196,11 @@ impl Alice1 {
             .map(|oracle_bits| {
                 oracle_bits
                     .iter()
-                    .map(|oracle_bit| {
-                        [
-                            g!({ &oracle_bit[0] } * G).normalize(),
-                            g!({ &oracle_bit[1] } * G).normalize(),
-                        ]
+                    .map(|oracle_bits| {
+                        oracle_bits
+                            .iter()
+                            .map(|oracle_bit| g!(oracle_bit * G).normalize())
+                            .collect()
                     })
                     .collect()
             })
@@ -221,23 +224,28 @@ impl Alice1 {
     }
 }
 
-fn compute_pads(pads: &[[ChainScalar; 2]]) -> Vec<ChainScalar<Secret, Zero>> {
-    _compute_pads(pads.len() - 1, ChainScalar::zero(), pads)
+fn compute_pads(pads: &[Vec<ChainScalar>], monotone: bool) -> Vec<ChainScalar<Secret, Zero>> {
+    _compute_pads(pads.len() - 1, ChainScalar::zero(), pads, monotone)
 }
 
 fn _compute_pads(
     cur_bit: usize,
     acc: ChainScalar<Secret, Zero>,
-    pads: &[[ChainScalar; 2]],
+    pads: &[Vec<ChainScalar>],
+    monotone: bool,
 ) -> Vec<ChainScalar<Secret, Zero>> {
     let zero = s!(acc + { &pads[cur_bit][0] });
-    let one = s!(acc + { &pads[cur_bit][1] });
+    let one = if monotone {
+        acc
+    } else {
+        s!(acc + { &pads[cur_bit][1] })
+    };
 
     if cur_bit == 0 {
         vec![zero, one]
     } else {
-        let mut children = _compute_pads(cur_bit - 1, zero, pads);
-        children.extend(_compute_pads(cur_bit - 1, one, pads));
+        let mut children = _compute_pads(cur_bit - 1, zero, pads, monotone);
+        children.extend(_compute_pads(cur_bit - 1, one, pads, monotone));
         children
     }
 }
