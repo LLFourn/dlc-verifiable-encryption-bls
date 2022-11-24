@@ -9,6 +9,7 @@ edition = "2021"
 bls12_381 = { version = "0.1.4", package = "irmaseal-curve", features = ["experimental"] }
 anyhow = "1"
 secp256kfun = {  version = "0.7", features = ["serde"] }
+secp256k1-zkp = {version = "0.7.0" }
 sha2 = "0.9"
 rand = { version = "0.8" }
 clap = {  version = "3", features = ["derive"] }

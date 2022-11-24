@@ -26,6 +26,15 @@ cargo run --release -- -s 30 --n-outcomes 100 --threshold 2 --n-oracles 3 --mono
 To model computational security just set `-s` to `128` or whatever you find tolerable.
 
 ```
-cargo run --release -- -s 30 --n-outcomes 100 --threshold 2 --n-oracles 3 --monotone
+cargo run --release -- -s 128 --n-outcomes 100 --threshold 2 --n-oracles 3 --monotone
 ```
+
+
+To compare against `rust-dlc` you should model time taken to sign and verify ECDSA adaptor sigs:
+
+
+```
+cargo run --release -- -s 128 --n-outcomes 100 --threshold 2 --n-oracles 3 --monotone --model-ecdsa-adaptor
+```
+
 

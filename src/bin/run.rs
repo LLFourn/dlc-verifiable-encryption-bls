@@ -12,6 +12,8 @@ use dlc_venc_pairing::{
     oracle::Oracle,
 };
 use rand::Rng;
+use secp256k1_zkp::{EcdsaAdaptorSignature, Secp256k1};
+use secp256k1_zkp::{Message, PublicKey, SecretKey};
 use secp256kfun::{g, Scalar as ChainScalar, G};
 use sha2::Sha256;
 use std::time::Instant;
@@ -38,6 +40,12 @@ struct CliArgs {
     /// secrets than higher ones).
     #[clap(long)]
     monotone: bool,
+
+    /// Model ECDSA adaptor signature generation. This is so we can have applies-to-apples
+    /// comparision against rust-dlc which at the time of writing uses ECDSA adaptor signatures.
+    /// The total elapsed will include the time needed to generate the ECDSA adaptor signatures.
+    #[clap(long)]
+    model_ecdsa_adaptor: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -70,14 +78,42 @@ fn main() -> anyhow::Result<()> {
         monotone: args.monotone,
     };
 
+    println!("Params s: {} n_oracles: {} n_outcomes: {} threshold: {} n_encryptions: {} bucket_size: {} proportion_closed: {}",
+             args.s, args.n_oracles, args.n_outcomes, args.threshold, params.M(), params.bucket_size, params.closed_proportion);
+
     let secrets = (0..params.n_outcomes)
         .map(|_| ChainScalar::random(&mut rand::thread_rng()))
         .collect::<Vec<_>>();
-    let secret_images = secrets.iter().map(|s| g!(s * G).normalize()).collect();
 
-    println!("Params s: {} n_oracles: {} n_outcomes: {} threshold: {} n_encryptions: {} bucket_size: {} proportion_closed: {}",
-             args.s, args.n_oracles, args.n_outcomes, args.threshold, params.M(), params.bucket_size, params.closed_proportion);
+    let secret_images: Vec<_> = secrets.iter().map(|s| g!(s * G).normalize()).collect();
+    let secp = Secp256k1::new();
+    let arbirary_message = Message::from_slice([42u8; 32].as_ref()).unwrap();
+
+    let alice_ecdsa_secret_key = SecretKey::from_slice([42u8; 32].as_ref()).unwrap();
+
     let start_gen_msg_1 = Instant::now();
+    let adaptor_sigs = if args.model_ecdsa_adaptor {
+        // imagine this is the secret key she's using for bitcoin transactions.
+        // we could imagine this is a bitcoin transaction
+        let ecdsa_adaptor_sigs = secret_images
+            .iter()
+            .map(|image| {
+                let encryption_key = PublicKey::from_slice(image.to_bytes().as_slice()).unwrap();
+                (
+                    EcdsaAdaptorSignature::encrypt_no_aux_rand(
+                        &secp,
+                        &arbirary_message,
+                        &alice_ecdsa_secret_key,
+                        &encryption_key,
+                    ),
+                    encryption_key,
+                )
+            })
+            .collect::<Vec<_>>();
+        ecdsa_adaptor_sigs
+    } else {
+        vec![]
+    };
     let (alice, m1) = Alice1::new(&params);
     let m1_encode_len = encode_len(&m1);
     println!(
@@ -88,6 +124,20 @@ fn main() -> anyhow::Result<()> {
     let start_gen_msg_2 = Instant::now();
     let (bob, m2) = Bob1::new(m1, &params)?;
     let m2_encode_len = encode_len(&m2);
+    // we imagine that verifying ECDSA adaptor signatures happens during generating msg 2
+    if args.model_ecdsa_adaptor {
+        let alice_ecdsa_public_key = PublicKey::from_secret_key(&secp, &alice_ecdsa_secret_key);
+        for (ecdsa_adaptor, encryption_key) in adaptor_sigs {
+            assert!(ecdsa_adaptor
+                .verify(
+                    &secp,
+                    &arbirary_message,
+                    &alice_ecdsa_public_key,
+                    &encryption_key
+                )
+                .is_ok());
+        }
+    }
     println!(
         "End gen msg 2 elapsed: {:?} transmitted: {} (bob)",
         start_gen_msg_2.elapsed(),
